@@ -12,6 +12,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "gif.js.optimized": "^1.0.1",
     "qrcode.react": "^4.2.0",
     "react": "^18.0.0",
