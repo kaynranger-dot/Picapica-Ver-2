@@ -37,7 +37,6 @@ const PhotoBooth = ({ setCapturedImages }) => {
 
   const createNewSession = async () => {
     if (!user) return;
-    
     try {
       const sessionData = {
         user_id: user.id,
@@ -45,21 +44,21 @@ const PhotoBooth = ({ setCapturedImages }) => {
         filter_applied: filter,
         metadata: {
           user_agent: navigator.userAgent,
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       };
-      
+
       const { data, error } = await db.createSession(sessionData);
       if (error) {
-        console.error('Error creating session:', error);
+        console.error("Error creating session:", error);
         return;
       }
-      
       setCurrentSession(data);
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error("Error creating session:", error);
     }
   };
+
   const startCamera = async () => {
     try {
       if (videoRef.current?.srcObject) return;
@@ -82,25 +81,27 @@ const PhotoBooth = ({ setCapturedImages }) => {
     let photosTaken = 0;
     const newCapturedImages = [];
 
-    // 3x2 → 6 photos, 4x2 → 4 photos, 2x2 → 4 photos
     const maxPhotos = layout === "3x2" ? 6 : 4;
 
-    const captureSequence = () => {
+    const captureSequence = async () => { // ✅ fixed: make async
       if (photosTaken >= maxPhotos) {
         setCapturing(false);
         setCapturedImages([...newCapturedImages]);
         setImages([...newCapturedImages]);
-        
-        // Save the photo strip to database
-        await savePhotoStrip(newCapturedImages);
-        
-        setTimeout(() => navigate("/preview", { 
-          state: { 
-            layout,
-            sessionId: currentSession?.session_id,
-            capturedImages: newCapturedImages
-          } 
-        }), 200);
+
+        await savePhotoStrip(newCapturedImages); // ✅ now valid
+
+        setTimeout(
+          () =>
+            navigate("/preview", {
+              state: {
+                layout,
+                sessionId: currentSession?.session_id,
+                capturedImages: newCapturedImages,
+              },
+            }),
+          200
+        );
         return;
       }
 
@@ -129,91 +130,86 @@ const PhotoBooth = ({ setCapturedImages }) => {
 
   const savePhotoStrip = async (images) => {
     if (!user || !currentSession || images.length === 0) return;
-    
     try {
       setSaving(true);
-      
-      // Create the photo strip canvas
-      const stripCanvas = document.createElement('canvas');
-      const stripCtx = stripCanvas.getContext('2d');
-      
-      // Set canvas dimensions based on layout
+
+      const stripCanvas = document.createElement("canvas");
+      const stripCtx = stripCanvas.getContext("2d");
+
       const stripWidth = 1240;
       const stripHeight = 1845;
       stripCanvas.width = stripWidth;
       stripCanvas.height = stripHeight;
-      
-      // Fill background
-      stripCtx.fillStyle = '#ffffff';
+
+      stripCtx.fillStyle = "#ffffff";
       stripCtx.fillRect(0, 0, stripWidth, stripHeight);
-      
-      // Draw images based on layout (simplified version)
-      const imagePromises = images.map(src => {
+
+      const imagePromises = images.map((src) => {
         return new Promise((resolve) => {
           const img = new Image();
           img.onload = () => resolve(img);
           img.src = src;
         });
       });
-      
+
       const loadedImages = await Promise.all(imagePromises);
-      
-      // Draw images in grid layout
-      if (layout === '3x2') {
-        const cols = 2, rows = 3;
-        const gapX = 30, gapY = 30;
+
+      if (layout === "3x2") {
+        const cols = 2,
+          rows = 3;
+        const gapX = 30,
+          gapY = 30;
         const frameWidth = (stripWidth - (cols + 1) * gapX) / cols;
         const frameHeight = (stripHeight - (rows + 1) * gapY - 80) / rows;
-        
+
         loadedImages.slice(0, 6).forEach((img, index) => {
           const col = index % cols;
           const row = Math.floor(index / cols);
           const x = gapX + col * (frameWidth + gapX);
           const y = gapY + row * (frameHeight + gapY);
-          
-          const ratio = Math.min(frameWidth / img.width, frameHeight / img.height);
+
+          const ratio = Math.min(
+            frameWidth / img.width,
+            frameHeight / img.height
+          );
           const drawWidth = img.width * ratio;
           const drawHeight = img.height * ratio;
           const offsetX = x + (frameWidth - drawWidth) / 2;
           const offsetY = y + (frameHeight - drawHeight) / 2;
-          
+
           stripCtx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
         });
       }
-      
-      // Add watermark
-      stripCtx.fillStyle = '#000';
-      stripCtx.font = '30px Arial';
-      stripCtx.textAlign = 'center';
-      stripCtx.fillText('Picapica © 2025', stripWidth / 2, stripHeight - 40);
-      
-      // Convert to data URL
-      const imageDataUrl = stripCanvas.toDataURL('image/png');
-      
-      // Save to database
+
+      stripCtx.fillStyle = "#000";
+      stripCtx.font = "30px Arial";
+      stripCtx.textAlign = "center";
+      stripCtx.fillText("Picapica © 2025", stripWidth / 2, stripHeight - 40);
+
+      const imageDataUrl = stripCanvas.toDataURL("image/png");
+
       const imageData = {
         user_id: user.id,
         session_id: currentSession.session_id,
         image_url: imageDataUrl,
         image_data: imageDataUrl,
         layout: layout,
-        background_color: '#ffffff',
+        background_color: "#ffffff",
         sticker_applied: null,
-        file_size: Math.round(imageDataUrl.length * 0.75) // Approximate file size
+        file_size: Math.round(imageDataUrl.length * 0.75),
       };
-      
-      const { data, error } = await db.saveGeneratedImage(imageData);
+
+      const { error } = await db.saveGeneratedImage(imageData);
       if (error) {
-        console.error('Error saving image:', error);
+        console.error("Error saving image:", error);
       }
-      
     } catch (error) {
-      console.error('Error saving photo strip:', error);
+      console.error("Error saving photo strip:", error);
     } finally {
       setSaving(false);
     }
   };
-  /** Capture photo — different crop based on layout */
+
   const capturePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -224,9 +220,6 @@ const PhotoBooth = ({ setCapturedImages }) => {
     const isFourByTwo = layout === "4x2";
     const isTwoByTwo = layout === "2x2";
 
-    // ✅ 3x2 → square 600×600
-    // ✅ 4x2 → landscape 900×600
-    // ✅ 2x2 → portrait 590×832
     let targetWidth, targetHeight;
     if (isFourByTwo) {
       targetWidth = 900;
@@ -246,14 +239,13 @@ const PhotoBooth = ({ setCapturedImages }) => {
     const videoHeight = video.videoHeight;
 
     if (isFourByTwo) {
-      // landscape crop 3:2 ratio
       const cropWidth = videoWidth;
       const cropHeight = videoWidth * (2 / 3);
       const startX = 0;
       const startY = (videoHeight - cropHeight) / 2;
 
       ctx.save();
-      ctx.translate(canvas.width, 0); // mirror
+      ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.filter = filter;
 
@@ -268,10 +260,8 @@ const PhotoBooth = ({ setCapturedImages }) => {
         targetWidth,
         targetHeight
       );
-
       ctx.restore();
     } else if (isTwoByTwo) {
-      // portrait crop 590:832 ratio
       const targetRatio = 590 / 832;
       let cropWidth = videoWidth;
       let cropHeight = videoWidth / targetRatio;
@@ -298,10 +288,8 @@ const PhotoBooth = ({ setCapturedImages }) => {
         targetWidth,
         targetHeight
       );
-
       ctx.restore();
     } else {
-      // square crop for 3x2
       const size = Math.min(videoWidth, videoHeight);
       const startX = (videoWidth - size) / 2;
       const startY = (videoHeight - size) / 2;
@@ -311,21 +299,28 @@ const PhotoBooth = ({ setCapturedImages }) => {
       ctx.scale(-1, 1);
       ctx.filter = filter;
 
-      ctx.drawImage(video, startX, startY, size, size, 0, 0, targetWidth, targetHeight);
-
+      ctx.drawImage(
+        video,
+        startX,
+        startY,
+        size,
+        size,
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
       ctx.restore();
     }
 
     ctx.filter = "none";
-
     return canvas.toDataURL("image/png");
   };
 
   return (
     <div className="photo-booth">
       {countdown !== null && <h2 className="countdown animate">{countdown}</h2>}
-      }
-      
+
       {saving && (
         <div className="saving-indicator">
           <p>Saving your photo strip...</p>
@@ -333,7 +328,6 @@ const PhotoBooth = ({ setCapturedImages }) => {
       )}
 
       <div className="photo-container" style={{ display: "flex", gap: "30px" }}>
-        {/* Camera preview */}
         <div className="camera-container">
           <video
             ref={videoRef}
@@ -349,16 +343,16 @@ const PhotoBooth = ({ setCapturedImages }) => {
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Side previews */}
         <div
           className="preview-side"
           style={{
             display: "grid",
-            gridTemplateColumns: layout === "4x2" ? "repeat(2, 180px)" : "repeat(2, 100px)",
+            gridTemplateColumns:
+              layout === "4x2" ? "repeat(2, 180px)" : "repeat(2, 100px)",
             gridTemplateRows:
               layout === "3x2"
                 ? "repeat(3, 100px)"
-                : "repeat(2, 100px)", // 4x2 and 2x2 both 2 rows
+                : "repeat(2, 100px)",
             gap: layout === "4x2" ? "18px" : "15px",
           }}
         >
@@ -379,7 +373,6 @@ const PhotoBooth = ({ setCapturedImages }) => {
         </div>
       </div>
 
-      {/* Layout selection */}
       <div className="layout-options" style={{ marginTop: "15px" }}>
         <button
           onClick={() => setLayout("3x2")}
@@ -421,14 +414,12 @@ const PhotoBooth = ({ setCapturedImages }) => {
         </button>
       </div>
 
-      {/* Capture button */}
       <div className="controls" style={{ marginTop: "20px" }}>
         <button onClick={startCountdown} disabled={capturing}>
           {capturing ? "Capturing..." : saving ? "Saving..." : "Start Capture :)"}
         </button>
       </div>
 
-      {/* Filters */}
       <div className="filters" style={{ marginTop: "15px" }}>
         <button onClick={() => setFilter("none")}>No Filter</button>
         <button onClick={() => setFilter("grayscale(100%)")}>Grayscale</button>
@@ -455,4 +446,3 @@ const PhotoBooth = ({ setCapturedImages }) => {
 };
 
 export default PhotoBooth;
-
