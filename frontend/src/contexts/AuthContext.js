@@ -18,62 +18,68 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null)
 
   useEffect(() => {
-    // Get initial session
     const getInitialSession = async () => {
-      const { session } = await auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
+      const { data, error } = await auth.getSession()
+      if (error) console.error('Error getting session:', error)
+
+      setSession(data.session)
+      setUser(data.session?.user ?? null)
+
+      if (data.session?.user) {
+        await fetchUserProfile(data.session.user.id)
       }
-      
+
       setLoading(false)
     }
 
     getInitialSession()
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id)
-        } else {
-          setUserProfile(null)
-        }
-        
-        setLoading(false)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+
+      if (session?.user) {
+        await fetchUserProfile(session.user.id)
+      } else {
+        setUserProfile(null)
       }
-    )
+
+      setLoading(false)
+    })
 
     return () => subscription.unsubscribe()
   }, [])
 
+  // 🔹 Fetch user profile from `user_profiles` table
   const fetchUserProfile = async (userId) => {
-    try {
-      const { data, error } = await db.getUserProfile(userId)
-      if (error) {
-        console.error('Error fetching user profile:', error)
-        return
-      }
-      setUserProfile(data)
-    } catch (error) {
-      console.error('Error fetching user profile:', error)
+    const { data, error } = await db
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching user profile:', error.message)
+      return
     }
+    setUserProfile(data)
   }
 
+  // 🔹 Signup (Supabase v2)
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true)
-      const { data, error } = await auth.signUp(email, password, userData)
-      
-      if (error) {
-        throw error
-      }
+      const { data, error } = await auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData, // saves to user_metadata
+        },
+      })
 
+      if (error) throw error
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -82,15 +88,13 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // 🔹 Sign in
   const signIn = async (email, password) => {
     try {
       setLoading(true)
-      const { data, error } = await auth.signIn(email, password)
-      
-      if (error) {
-        throw error
-      }
+      const { data, error } = await auth.signInWithPassword({ email, password })
 
+      if (error) throw error
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -99,19 +103,17 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // 🔹 Sign out
   const signOut = async () => {
     try {
       setLoading(true)
       const { error } = await auth.signOut()
-      
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       setUser(null)
       setUserProfile(null)
       setSession(null)
-      
+
       return { error: null }
     } catch (error) {
       return { error }
@@ -120,15 +122,19 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // 🔹 Update profile
   const updateProfile = async (updates) => {
     try {
       if (!user) throw new Error('No user logged in')
-      
-      const { data, error } = await db.updateUserProfile(user.id, updates)
-      
-      if (error) {
-        throw error
-      }
+
+      const { data, error } = await db
+        .from('user_profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single()
+
+      if (error) throw error
 
       setUserProfile(data)
       return { data, error: null }
@@ -137,6 +143,7 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // 🔹 Check if user is admin
   const isAdmin = () => {
     return userProfile?.role === 'admin'
   }
@@ -151,12 +158,8 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updateProfile,
     isAdmin,
-    fetchUserProfile
+    fetchUserProfile,
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
