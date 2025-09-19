@@ -1,15 +1,32 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import fishSticker from "../assets/fish.png";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { db } from "../lib/supabase";
 
-const PhotoPreview = ({ capturedImages, stickerImage: propStickerImage }) => {
+const PhotoPreview = ({ capturedImages: propCapturedImages, stickerImage: propStickerImage }) => {
+  const { user } = useAuth();
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [bgColor, setBgColor] = useState("#ffffff");
   const [stickerImage, setStickerImage] = useState(propStickerImage || null);
+  const [capturedImages, setCapturedImages] = useState(propCapturedImages || []);
+  const [currentImageData, setCurrentImageData] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const layout = location.state?.layout || "3x2";
+  const sessionId = location.state?.sessionId;
+  const stateCapturedImages = location.state?.capturedImages;
+
+  // Use images from state if available, otherwise use props
+  useEffect(() => {
+    if (stateCapturedImages && stateCapturedImages.length > 0) {
+      setCapturedImages(stateCapturedImages);
+    } else if (propCapturedImages && propCapturedImages.length > 0) {
+      setCapturedImages(propCapturedImages);
+    }
+  }, [stateCapturedImages, propCapturedImages]);
 
   const drawPhotoStrip = useCallback(() => {
     const canvas = canvasRef.current;
@@ -199,13 +216,60 @@ const PhotoPreview = ({ capturedImages, stickerImage: propStickerImage }) => {
     drawPhotoStrip();
   }, [drawPhotoStrip]);
 
+  // Save updated image when background or sticker changes
+  const saveUpdatedImage = async () => {
+    if (!user || !sessionId || !canvasRef.current) return;
+    
+    try {
+      setSaving(true);
+      const imageDataUrl = canvasRef.current.toDataURL('image/png');
+      
+      const imageData = {
+        user_id: user.id,
+        session_id: sessionId,
+        image_url: imageDataUrl,
+        image_data: imageDataUrl,
+        layout: layout,
+        background_color: bgColor,
+        sticker_applied: stickerImage,
+        file_size: Math.round(imageDataUrl.length * 0.75)
+      };
+      
+      const { data, error } = await db.saveGeneratedImage(imageData);
+      if (error) {
+        console.error('Error saving updated image:', error);
+      } else {
+        setCurrentImageData(data);
+      }
+      
+    } catch (error) {
+      console.error('Error saving updated image:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
   const downloadStrip = () => {
+    // Update download count if we have current image data
+    if (currentImageData) {
+      db.updateImageDownloadCount(currentImageData.id);
+    }
+    
     const link = document.createElement("a");
     link.download = "photostrip.png";
     link.href = canvasRef.current.toDataURL("image/png");
     link.click();
   };
 
+  // Auto-save when background color or sticker changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (capturedImages.length > 0) {
+        saveUpdatedImage();
+      }
+    }, 1000); // Debounce saves by 1 second
+    
+    return () => clearTimeout(timeoutId);
+  }, [bgColor, stickerImage]);
   return (
     <>
       <header style={{ width: '100%', background: '#fff', borderBottom: '1.5px solid #eee', marginBottom: 24, padding: '12px 0', boxShadow: '0 2px 8px #0001' }}>
@@ -220,6 +284,12 @@ const PhotoPreview = ({ capturedImages, stickerImage: propStickerImage }) => {
 
       <div className="photo-preview">
         <h2>Photo Strip Preview ({layout.toUpperCase()})</h2>
+        
+        {saving && (
+          <div className="saving-indicator">
+            <p>Saving changes...</p>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 32 }}>
           <div>
@@ -234,7 +304,10 @@ const PhotoPreview = ({ capturedImages, stickerImage: propStickerImage }) => {
             />
             <div className="strip-buttons" style={{ marginTop: 10 }}>
               <button onClick={downloadStrip}>📥 Download Photo Strip</button>
-              <button onClick={() => navigate("/")}>🔄 Take New Photos</button>
+             <button onClick={() => navigate("/photobooth")}>🔄 Take New Photos</button>
+             {user && (
+               <button onClick={() => navigate("/dashboard")}>📊 Dashboard</button>
+             )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-end', minWidth: 240 }}>

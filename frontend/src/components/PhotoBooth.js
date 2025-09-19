@@ -1,7 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { db } from "../lib/supabase";
 
 const PhotoBooth = ({ setCapturedImages }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -11,6 +14,8 @@ const PhotoBooth = ({ setCapturedImages }) => {
   const [countdown, setCountdown] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [layout, setLayout] = useState("3x2"); // default layout
+  const [currentSession, setCurrentSession] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     startCamera();
@@ -23,6 +28,38 @@ const PhotoBooth = ({ setCapturedImages }) => {
     };
   }, []);
 
+  // Create a new session when component mounts
+  useEffect(() => {
+    if (user) {
+      createNewSession();
+    }
+  }, [user, layout]);
+
+  const createNewSession = async () => {
+    if (!user) return;
+    
+    try {
+      const sessionData = {
+        user_id: user.id,
+        layout: layout,
+        filter_applied: filter,
+        metadata: {
+          user_agent: navigator.userAgent,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      const { data, error } = await db.createSession(sessionData);
+      if (error) {
+        console.error('Error creating session:', error);
+        return;
+      }
+      
+      setCurrentSession(data);
+    } catch (error) {
+      console.error('Error creating session:', error);
+    }
+  };
   const startCamera = async () => {
     try {
       if (videoRef.current?.srcObject) return;
@@ -53,7 +90,17 @@ const PhotoBooth = ({ setCapturedImages }) => {
         setCapturing(false);
         setCapturedImages([...newCapturedImages]);
         setImages([...newCapturedImages]);
-        setTimeout(() => navigate("/preview", { state: { layout } }), 200);
+        
+        // Save the photo strip to database
+        await savePhotoStrip(newCapturedImages);
+        
+        setTimeout(() => navigate("/preview", { 
+          state: { 
+            layout,
+            sessionId: currentSession?.session_id,
+            capturedImages: newCapturedImages
+          } 
+        }), 200);
         return;
       }
 
@@ -80,6 +127,92 @@ const PhotoBooth = ({ setCapturedImages }) => {
     captureSequence();
   };
 
+  const savePhotoStrip = async (images) => {
+    if (!user || !currentSession || images.length === 0) return;
+    
+    try {
+      setSaving(true);
+      
+      // Create the photo strip canvas
+      const stripCanvas = document.createElement('canvas');
+      const stripCtx = stripCanvas.getContext('2d');
+      
+      // Set canvas dimensions based on layout
+      const stripWidth = 1240;
+      const stripHeight = 1845;
+      stripCanvas.width = stripWidth;
+      stripCanvas.height = stripHeight;
+      
+      // Fill background
+      stripCtx.fillStyle = '#ffffff';
+      stripCtx.fillRect(0, 0, stripWidth, stripHeight);
+      
+      // Draw images based on layout (simplified version)
+      const imagePromises = images.map(src => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.src = src;
+        });
+      });
+      
+      const loadedImages = await Promise.all(imagePromises);
+      
+      // Draw images in grid layout
+      if (layout === '3x2') {
+        const cols = 2, rows = 3;
+        const gapX = 30, gapY = 30;
+        const frameWidth = (stripWidth - (cols + 1) * gapX) / cols;
+        const frameHeight = (stripHeight - (rows + 1) * gapY - 80) / rows;
+        
+        loadedImages.slice(0, 6).forEach((img, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          const x = gapX + col * (frameWidth + gapX);
+          const y = gapY + row * (frameHeight + gapY);
+          
+          const ratio = Math.min(frameWidth / img.width, frameHeight / img.height);
+          const drawWidth = img.width * ratio;
+          const drawHeight = img.height * ratio;
+          const offsetX = x + (frameWidth - drawWidth) / 2;
+          const offsetY = y + (frameHeight - drawHeight) / 2;
+          
+          stripCtx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        });
+      }
+      
+      // Add watermark
+      stripCtx.fillStyle = '#000';
+      stripCtx.font = '30px Arial';
+      stripCtx.textAlign = 'center';
+      stripCtx.fillText('Picapica © 2025', stripWidth / 2, stripHeight - 40);
+      
+      // Convert to data URL
+      const imageDataUrl = stripCanvas.toDataURL('image/png');
+      
+      // Save to database
+      const imageData = {
+        user_id: user.id,
+        session_id: currentSession.session_id,
+        image_url: imageDataUrl,
+        image_data: imageDataUrl,
+        layout: layout,
+        background_color: '#ffffff',
+        sticker_applied: null,
+        file_size: Math.round(imageDataUrl.length * 0.75) // Approximate file size
+      };
+      
+      const { data, error } = await db.saveGeneratedImage(imageData);
+      if (error) {
+        console.error('Error saving image:', error);
+      }
+      
+    } catch (error) {
+      console.error('Error saving photo strip:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
   /** Capture photo — different crop based on layout */
   const capturePhoto = () => {
     const video = videoRef.current;
@@ -191,6 +324,12 @@ const PhotoBooth = ({ setCapturedImages }) => {
   return (
     <div className="photo-booth">
       {countdown !== null && <h2 className="countdown animate">{countdown}</h2>}
+      
+      {saving && (
+        <div className="saving-indicator">
+          <p>Saving your photo strip...</p>
+        </div>
+      )}
 
       <div className="photo-container" style={{ display: "flex", gap: "30px" }}>
         {/* Camera preview */}
@@ -284,7 +423,7 @@ const PhotoBooth = ({ setCapturedImages }) => {
       {/* Capture button */}
       <div className="controls" style={{ marginTop: "20px" }}>
         <button onClick={startCountdown} disabled={capturing}>
-          {capturing ? "Capturing..." : "Start Capture :)"}
+          {capturing ? "Capturing..." : saving ? "Saving..." : "Start Capture :)"}
         </button>
       </div>
 
