@@ -1,5 +1,6 @@
+// src/contexts/AuthContext.js
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { supabase, auth, db } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -18,14 +19,15 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null)
 
   useEffect(() => {
+    // Get initial session
     const getInitialSession = async () => {
-      const { data, error } = await auth.getSession()
+      const { data, error } = await supabase.auth.getSession()
       if (error) console.error('Error getting session:', error)
 
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
+      setSession(data?.session ?? null)
+      setUser(data?.session?.user ?? null)
 
-      if (data.session?.user) {
+      if (data?.session?.user) {
         await fetchUserProfile(data.session.user.id)
       }
 
@@ -34,49 +36,50 @@ export const AuthProvider = ({ children }) => {
 
     getInitialSession()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session)
+        setUser(session?.user ?? null)
 
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-      } else {
-        setUserProfile(null)
+        if (session?.user) {
+          await fetchUserProfile(session.user.id)
+        } else {
+          setUserProfile(null)
+        }
+
+        setLoading(false)
       }
-
-      setLoading(false)
-    })
+    )
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // 🔹 Fetch user profile from `user_profiles` table
   const fetchUserProfile = async (userId) => {
-    const { data, error } = await db
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      console.error('Error fetching user profile:', error.message)
-      return
+      if (error) {
+        console.error('Error fetching user profile:', error)
+        return
+      }
+      setUserProfile(data)
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
     }
-    setUserProfile(data)
   }
 
-  // 🔹 Signup (Supabase v2)
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true)
-      const { data, error } = await auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: userData, // saves to user_metadata
-        },
+        options: { data: userData },
       })
 
       if (error) throw error
@@ -88,11 +91,13 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // 🔹 Sign in
   const signIn = async (email, password) => {
     try {
       setLoading(true)
-      const { data, error } = await auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
       if (error) throw error
       return { data, error: null }
@@ -103,17 +108,15 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // 🔹 Sign out
   const signOut = async () => {
     try {
       setLoading(true)
-      const { error } = await auth.signOut()
+      const { error } = await supabase.auth.signOut()
       if (error) throw error
 
       setUser(null)
       setUserProfile(null)
       setSession(null)
-
       return { error: null }
     } catch (error) {
       return { error }
@@ -122,12 +125,11 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // 🔹 Update profile
   const updateProfile = async (updates) => {
     try {
       if (!user) throw new Error('No user logged in')
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('user_profiles')
         .update(updates)
         .eq('id', user.id)
@@ -135,7 +137,6 @@ export const AuthProvider = ({ children }) => {
         .single()
 
       if (error) throw error
-
       setUserProfile(data)
       return { data, error: null }
     } catch (error) {
@@ -143,10 +144,7 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // 🔹 Check if user is admin
-  const isAdmin = () => {
-    return userProfile?.role === 'admin'
-  }
+  const isAdmin = () => userProfile?.role === 'admin'
 
   const value = {
     user,
@@ -161,5 +159,9 @@ export const AuthProvider = ({ children }) => {
     fetchUserProfile,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
