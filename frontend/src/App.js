@@ -5,17 +5,21 @@ import Home from "./components/Home";
 import Welcome from "./components/Welcome";
 import PhotoBooth from "./components/PhotoBooth";
 import PhotoPreview from "./components/PhotoPreview";
+import Header from "./components/Header";
 
 function App() {
   const [capturedImages, setCapturedImages] = useState([]);
 
   return (
+    <>
+      <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/photobooth" element={<PhotoBooth setCapturedImages={setCapturedImages} />} />
         <Route path="/preview" element={<PhotoPreview capturedImages={capturedImages} />} />
       </Routes>
+    </>
   );
 }
 
