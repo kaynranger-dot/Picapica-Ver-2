@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Picapica 📸
 ![picapica](https://github.com/user-attachments/assets/4a6629c9-0c75-4a3a-a9f5-355712e2a372)
 
@@ -69,3 +70,8 @@ MIT License © 2025 Agnes Wei
 
 ---
 Enjoy snapping fun pictures! 📷✨
+=======
+# photobooth-bolt-2
+An interactive web-based photobooth that features filters, frames, and instant photo sharing. 
+>>>>>>> fa24a4b71983485c5374c4f43e5942433e60ac38
+"# Picapica-Ver-2" 
