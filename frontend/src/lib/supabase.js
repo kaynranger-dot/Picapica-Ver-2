@@ -1,98 +1,61 @@
-// frontend/src/lib/supabase.js
-import { createClient } from '@supabase/supabase-js'
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-// Use Vite env vars if available, otherwise fallback
-const supabaseUrl =
-  import.meta.env?.VITE_SUPABASE_URL ||
-  "https://thwjfnfqdqkpvsdmggpb.supabase.co"
+const AuthContext = createContext()
 
-const supabaseAnonKey =
-  import.meta.env?.VITE_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRod2pmbmZxZHFrcHZzZG1nZ3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNzk4MjgsImV4cCI6MjA3Mzg1NTgyOH0.nhCSoKHrsqugXoudG7_msyTt0Dnx2_mdgLTQLq8GFwI"
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables")
-}
+  // Get current session on mount
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    getSession()
 
-// --- Auth helpers ---
-export const auth = {
-  signUp: async (email, password, userData = {}) => {
+    // Listen for login / logout events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Sign up
+  const signUp = async (email, password, metadata = {}) => {
     return await supabase.auth.signUp({
       email,
       password,
-      options: { data: userData },
+      options: {
+        data: metadata, // user_metadata (full_name, etc.)
+      },
     })
-  },
+  }
 
-  signIn: async (email, password) => {
-    return await supabase.auth.signInWithPassword({ email, password })
-  },
+  // Sign in
+  const signIn = async (email, password) => {
+    return await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+  }
 
-  signOut: async () => {
+  // Sign out
+  const signOut = async () => {
     return await supabase.auth.signOut()
-  },
+  }
 
-  getCurrentUser: async () => {
-    return await supabase.auth.getUser()
-  },
-
-  getSession: async () => {
-    return await supabase.auth.getSession()
-  },
+  return (
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-// --- Database helpers ---
-export const db = {
-  getUserProfile: async (userId) =>
-    await supabase.from("user_profiles").select("*").eq("user_id", userId).single(),
-
-  updateUserProfile: async (userId, updates) =>
-    await supabase.from("user_profiles").update(updates).eq("user_id", userId).select().single(),
-
-  createSession: async (sessionData) =>
-    await supabase.from("sessions").insert(sessionData).select().single(),
-
-  getUserSessions: async (userId) =>
-    await supabase.from("sessions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-
-  saveGeneratedImage: async (imageData) =>
-    await supabase.from("generated_images").insert(imageData).select().single(),
-
-  getUserImages: async (userId) =>
-    await supabase
-      .from("generated_images")
-      .select(
-        `*, sessions (layout, filter_applied, created_at)`
-      )
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false }),
-
-  updateImageDownloadCount: async (imageId) =>
-    await supabase.rpc("increment_download_count", { image_id: imageId }),
-
-  getAllUsers: async () =>
-    await supabase.from("user_profiles").select("*").order("created_at", { ascending: false }),
-
-  getAllImages: async () =>
-    await supabase
-      .from("generated_images")
-      .select(
-        `*, user_profiles (email, full_name), sessions (layout, filter_applied)`
-      )
-      .order("created_at", { ascending: false }),
-
-  getAllSessions: async () =>
-    await supabase
-      .from("sessions")
-      .select(
-        `*, user_profiles (email, full_name)`
-      )
-      .order("created_at", { ascending: false }),
-}
-
-// --- RPC helper ---
-export const createIncrementFunction = async () => {
-  return await supabase.rpc("create_increment_function")
+export function useAuth() {
+  return useContext(AuthContext)
 }
