@@ -52,19 +52,22 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!validateForm()) {
-      return
-    }
+    if (!validateForm()) return
 
     try {
       setError('')
       setLoading(true)
       
+      // ✅ FIXED: send metadata inside options.data
       const { data, error } = await signUp(
         formData.email, 
         formData.password,
         {
-          full_name: formData.fullName || formData.email
+          options: {
+            data: {
+              full_name: formData.fullName || formData.email
+            }
+          }
         }
       )
       
@@ -75,7 +78,7 @@ const Register = () => {
 
       setSuccess(true)
       
-      // If email confirmation is disabled, redirect immediately
+      // If email confirmation is enabled, show success then redirect
       if (data.user && !data.user.email_confirmed_at) {
         setTimeout(() => {
           navigate('/login', { 
@@ -86,7 +89,7 @@ const Register = () => {
           })
         }, 2000)
       } else {
-        // User is automatically signed in
+        // User is already signed in
         const from = location.state?.from?.pathname || '/'
         navigate(from, { replace: true })
       }
