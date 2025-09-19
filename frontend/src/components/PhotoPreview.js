@@ -1,73 +1,199 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import fishSticker from "../assets/fish.png";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 
-const PhotoPreview = ({ capturedImages }) => {
+const PhotoPreview = ({ capturedImages, stickerImage: propStickerImage }) => {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const [bgColor, setBgColor] = useState("#ffffff");
+  const [stickerImage, setStickerImage] = useState(propStickerImage || null);
+
+  const layout = location.state?.layout || "3x2";
 
   const drawPhotoStrip = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || capturedImages.length === 0) return;
     const ctx = canvas.getContext("2d");
 
-    /** === Layout ===
-     * Canvas: 4×6 inches at 300 DPI → 1200×1800 px
-     * 2 columns × 3 rows
-     * Adjustable gaps between photos
-     */
-    const cols = 2;
-    const rows = 3;
-
-    // Canvas size at 300dpi
-    const stripWidth = 1200;   // 4 inches
-    const stripHeight = 1800;  // 6 inches
+    const stripWidth = 1240;  // ~4.13" @ 300dpi
+    const stripHeight = 1845; // ~6.15" @ 300dpi
     canvas.width = stripWidth;
     canvas.height = stripHeight;
 
-    // Gap between photos and edges
-    const gapX = 30;  // horizontal gap
-    const gapY = 30;  // vertical gap between rows
-    const bottomGap = 50; // extra gap at bottom for footer text
-
-    // Calculate frame width/height dynamically
-    const frameWidth = (stripWidth - (cols + 1) * gapX) / cols;
-    const frameHeight = (stripHeight - (rows + 1) * gapY - bottomGap) / rows;
-
-    // Fill background
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, stripWidth, stripHeight);
 
-    // Draw each photo
-    capturedImages.slice(0, 6).forEach((src, index) => {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
+    // === 3x2 Layout ===
+    if (layout === "3x2") {
+      const cols = 2;
+      const rows = 3;
+      const gapX = 30;
+      const gapY = 30;
+      const bottomGap = 80;
 
-        const x = gapX + col * (frameWidth + gapX);
-        const y = gapY + row * (frameHeight + gapY);
+      const frameWidth = (stripWidth - (cols + 1) * gapX) / cols;
+      const frameHeight =
+        (stripHeight - (rows + 1) * gapY - bottomGap) / rows;
 
-        // Aspect-fit each image into frame
-        const ratio = Math.min(frameWidth / img.width, frameHeight / img.height);
-        const drawWidth = img.width * ratio;
-        const drawHeight = img.height * ratio;
-        const offsetX = x + (frameWidth - drawWidth) / 2;
-        const offsetY = y + (frameHeight - drawHeight) / 2;
+      capturedImages.slice(0, 6).forEach((src, index) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
 
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+          const x = gapX + col * (frameWidth + gapX);
+          const y = gapY + row * (frameHeight + gapY);
 
-        // Footer after last image
-        if (index === capturedImages.length - 1) {
+          const ratio = Math.min(
+            frameWidth / img.width,
+            frameHeight / img.height
+          );
+          const drawWidth = img.width * ratio;
+          const drawHeight = img.height * ratio;
+          const offsetX = x + (frameWidth - drawWidth) / 2;
+          const offsetY = y + (frameHeight - drawHeight) / 2;
+
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+          if (stickerImage && index === 5) {
+            const sticker = new Image();
+            sticker.src = stickerImage;
+            sticker.onload = () => {
+              ctx.drawImage(sticker, 0, 0, stripWidth, stripHeight - bottomGap);
+            };
+          }
+
+          if (index === 5) {
+            ctx.fillStyle = "#000";
+            ctx.font = "30px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(
+              "Picapica © 2025",
+              stripWidth / 2,
+              stripHeight - bottomGap / 2
+            );
+          }
+        };
+      });
+    }
+
+    // === 4x2 Layout ===
+    else if (layout === "4x2") {
+  const singleStripWidth = (stripWidth - 20) / 2; // middle gap now 20px
+  const rows = 4;
+
+  const sideGap = 10;   // even smaller left/right inside gap for bigger images
+  const topGap = 10;    // even smaller top margin
+  const photoGap = 1;   // minimal gap between photos
+  const logoHeight = 10; // even smaller footer/logo area
+
+  const photoStackHeight = stripHeight - topGap - logoHeight;
+  const frameWidth = singleStripWidth - (2 * sideGap);
+  // Increase frameHeight by adding 10px to photoStackHeight
+  const frameHeight = ((photoStackHeight + 40) - (rows - 1) * photoGap) / rows;
+
+      const imagePromises = capturedImages.slice(0, 4).map(src => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      });
+
+      Promise.all(imagePromises).then(images => {
+        for (let strip = 0; strip < 2; strip++) {
+          const stripOffsetX = strip * (singleStripWidth + 20);
+
+          images.forEach((img, index) => {
+            const y = topGap + index * (frameHeight + photoGap);
+
+            const ratio = Math.min(frameWidth / img.width, frameHeight / img.height);
+            const drawWidth = img.width * ratio;
+            const drawHeight = img.height * ratio;
+
+            const offsetX = stripOffsetX + sideGap + (frameWidth - drawWidth) / 2;
+            const offsetY = y + (frameHeight - drawHeight) / 2;
+
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+          });
+
           ctx.fillStyle = "#000";
-          ctx.font = "30px Arial"; // large text for high DPI
+          ctx.font = "24px Arial";
           ctx.textAlign = "center";
-          ctx.fillText("Picapica © 2025", stripWidth / 2, stripHeight - bottomGap / 2);
+          ctx.fillText(
+            "Picapica © 2025",
+            stripOffsetX + singleStripWidth / 2,
+            stripHeight - logoHeight / 2
+          );
         }
-      };
-    });
-  }, [capturedImages, bgColor]);
+      });
+    }
+
+    // === 2x2 Layout (BeautyPlus style, fixed gaps) ===
+    else if (layout === "2x2") {
+      const cols = 2;
+      const rows = 2;
+
+  const gap = 20; // 20px gap between images (not after last row)
+  const topGap = 60; // 20px gap at top + 40px top footer
+  const footerHeight = 120;
+
+  // Each image 590x732px
+  const frameWidth = 590;
+  const frameHeight = 732;
+  const blockWidth = cols * frameWidth + (cols - 1) * gap;
+  const blockHeight = rows * frameHeight + (rows - 1) * gap;
+
+  // Center the block horizontally, and position above the footer
+  const startX = (stripWidth - blockWidth) / 2;
+  const startY = topGap;
+
+  // Adjust canvas height if needed (if not already set elsewhere)
+  // If you want the canvas to fit exactly, set:
+  // canvas.height = blockHeight + topGap + footerHeight;
+
+      const imagePromises = capturedImages.slice(0, 4).map(src => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      });
+
+      Promise.all(imagePromises).then(images => {
+        images.forEach((img, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+
+          const x = startX + col * (frameWidth + gap);
+          // Only add gap below first row, not after last row (before footer)
+          const y = startY + row * frameHeight + (row > 0 ? gap : 0);
+
+          const ratio = Math.min(frameWidth / img.width, frameHeight / img.height);
+          const drawWidth = img.width * ratio;
+          const drawHeight = img.height * ratio;
+
+          const offsetX = x + (frameWidth - drawWidth) / 2;
+          const offsetY = y + (frameHeight - drawHeight) / 2;
+
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        });
+
+        // Draw sticker overlay if selected
+        if (stickerImage) {
+          const sticker = new window.Image();
+          sticker.src = stickerImage;
+          sticker.onload = () => {
+            ctx.drawImage(sticker, 0, 0, stripWidth, stripHeight);
+          };
+        }
+      });
+    }
+  }, [capturedImages, bgColor, layout, stickerImage]);
 
   useEffect(() => {
     drawPhotoStrip();
@@ -81,38 +207,65 @@ const PhotoPreview = ({ capturedImages }) => {
   };
 
   return (
-    <div className="photo-preview">
-      <h2>Photo Strip Preview</h2>
+    <>
+      <header style={{ width: '100%', background: '#fff', borderBottom: '1.5px solid #eee', marginBottom: 24, padding: '12px 0', boxShadow: '0 2px 8px #0001' }}>
+        <nav style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
+          <Link to="/" style={{ textDecoration: 'none', color: '#222', fontWeight: 600, fontSize: '1.1rem' }}>Home</Link>
+          <Link to="/post" style={{ textDecoration: 'none', color: '#222', fontWeight: 600, fontSize: '1.1rem' }}>Post</Link>
+          <Link to="/contact" style={{ textDecoration: 'none', color: '#222', fontWeight: 600, fontSize: '1.1rem' }}>Contact</Link>
+          <Link to="/login" style={{ textDecoration: 'none', color: '#222', fontWeight: 600, fontSize: '1.1rem' }}>Login</Link>
+          <Link to="/register" style={{ textDecoration: 'none', color: '#222', fontWeight: 600, fontSize: '1.1rem' }}>Register</Link>
+        </nav>
+      </header>
 
-      <div className="color-options">
-        <button onClick={() => setBgColor("#ffffff")}>White</button>
-        <button onClick={() => setBgColor("#ffd6d9")}>Pink</button>
-        <button onClick={() => setBgColor("#d6ffe8")}>Mint</button>
-        <button onClick={() => setBgColor("#f0d6ff")}>Lavender</button>
-        <button onClick={() => setBgColor("#fff0d6")}>Peach</button>
-        <button onClick={() => setBgColor("#d6f0ff")}>Sky Blue</button>
-        <button onClick={() => setBgColor("#fff6d6")}>Soft Yellow</button>
-        <button onClick={() => setBgColor("#e6d6ff")}>Lilac</button>
-        <button onClick={() => setBgColor("#d6fff6")}>Aqua</button>
-        <button onClick={() => setBgColor("#ffd6ff")}>Rose</button>
+      <div className="photo-preview">
+        <h2>Photo Strip Preview ({layout.toUpperCase()})</h2>
+
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 32 }}>
+          <div>
+            <canvas
+              ref={canvasRef}
+              style={{
+                border: "1px solid #000",
+                marginTop: 10,
+                width: "300px",
+                height: "450px",
+              }}
+            />
+            <div className="strip-buttons" style={{ marginTop: 10 }}>
+              <button onClick={downloadStrip}>📥 Download Photo Strip</button>
+              <button onClick={() => navigate("/")}>🔄 Take New Photos</button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-end', minWidth: 240 }}>
+            <div className="color-options" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 220 }}>
+              <span style={{ fontWeight: 'bold', marginBottom: 4, alignSelf: 'flex-end' }}>Wallpaper:</span>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 4, marginBottom: 4 }}>
+                <button className="custom-btn" onClick={() => setBgColor("#ffffff")}>White</button>
+                <button className="custom-btn" onClick={() => setBgColor("#ffd6d9")}>Pink</button>
+                <button className="custom-btn" onClick={() => setBgColor("#d6ffe8")}>Mint</button>
+                <button className="custom-btn" onClick={() => setBgColor("#f0d6ff")}>Lavender</button>
+                <button className="custom-btn" onClick={() => setBgColor("#fff0d6")}>Peach</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 4 }}>
+                <button className="custom-btn" onClick={() => setBgColor("#d6f0ff")}>Sky Blue</button>
+                <button className="custom-btn" onClick={() => setBgColor("#fff6d6")}>Yellow</button>
+                <button className="custom-btn" onClick={() => setBgColor("#e6d6ff")}>Lilac</button>
+                <button className="custom-btn" onClick={() => setBgColor("#d6fff6")}>Aqua</button>
+                <button className="custom-btn" onClick={() => setBgColor("#ffd6ff")}>Rose</button>
+              </div>
+            </div>
+            <div className="sticker-options" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 220, marginTop: 12 }}>
+              <span style={{ fontWeight: 'bold', marginBottom: 4, alignSelf: 'flex-end' }}>Sticker:</span>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 4 }}>
+                <button className="custom-btn" onClick={() => setStickerImage(fishSticker)}>🐟 Fish Sticker</button>
+                <button className="custom-btn" onClick={() => setStickerImage(null)}>❌ No Sticker</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Preview scaled down in browser */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          border: "1px solid #000",
-          marginTop: 10,
-          width: "300px", // scaled for screen (preview only)
-          height: "450px" // scaled for screen
-        }}
-      />
-
-      <div className="strip-buttons" style={{ marginTop: 10 }}>
-        <button onClick={downloadStrip}>📥 Download Photo Strip</button>
-        <button onClick={() => navigate("/")}>🔄 Take New Photos</button>
-      </div>
-    </div>
+    </>
   );
 };
 
