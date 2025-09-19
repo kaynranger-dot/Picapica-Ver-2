@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+// ✅ Use Vite env variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
@@ -11,19 +12,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Auth helper functions
 export const auth = {
-  // Sign up new user
   signUp: async (email, password, userData = {}) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: userData
-      }
+      options: { data: userData }
     })
     return { data, error }
   },
 
-  // Sign in user
   signIn: async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -32,19 +29,16 @@ export const auth = {
     return { data, error }
   },
 
-  // Sign out user
   signOut: async () => {
     const { error } = await supabase.auth.signOut()
     return { error }
   },
 
-  // Get current user
   getCurrentUser: async () => {
     const { data: { user }, error } = await supabase.auth.getUser()
     return { user, error }
   },
 
-  // Get current session
   getSession: async () => {
     const { data: { session }, error } = await supabase.auth.getSession()
     return { session, error }
@@ -53,7 +47,6 @@ export const auth = {
 
 // Database helper functions
 export const db = {
-  // User profiles
   getUserProfile: async (userId) => {
     const { data, error } = await supabase
       .from('user_profiles')
@@ -73,7 +66,6 @@ export const db = {
     return { data, error }
   },
 
-  // Sessions
   createSession: async (sessionData) => {
     const { data, error } = await supabase
       .from('sessions')
@@ -92,7 +84,6 @@ export const db = {
     return { data, error }
   },
 
-  // Generated images
   saveGeneratedImage: async (imageData) => {
     const { data, error } = await supabase
       .from('generated_images')
@@ -124,7 +115,6 @@ export const db = {
     return { data, error }
   },
 
-  // Admin functions
   getAllUsers: async () => {
     const { data, error } = await supabase
       .from('user_profiles')
@@ -166,7 +156,6 @@ export const db = {
   }
 }
 
-// Create RPC function for incrementing download count
 export const createIncrementFunction = async () => {
   const { data, error } = await supabase.rpc('create_increment_function')
   return { data, error }
