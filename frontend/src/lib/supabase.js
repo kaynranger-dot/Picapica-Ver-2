@@ -1,162 +1,98 @@
+// frontend/src/lib/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-// ✅ Use Vite env variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Use Vite env vars if available, otherwise fallback
+const supabaseUrl =
+  import.meta.env?.VITE_SUPABASE_URL ||
+  "https://thwjfnfqdqkpvsdmggpb.supabase.co"
+
+const supabaseAnonKey =
+  import.meta.env?.VITE_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRod2pmbmZxZHFrcHZzZG1nZ3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNzk4MjgsImV4cCI6MjA3Mzg1NTgyOH0.nhCSoKHrsqugXoudG7_msyTt0Dnx2_mdgLTQLq8GFwI"
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error("Missing Supabase environment variables")
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Auth helper functions
+// --- Auth helpers ---
 export const auth = {
   signUp: async (email, password, userData = {}) => {
-    const { data, error } = await supabase.auth.signUp({
+    return await supabase.auth.signUp({
       email,
       password,
-      options: { data: userData }
+      options: { data: userData },
     })
-    return { data, error }
   },
 
   signIn: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    return { data, error }
+    return await supabase.auth.signInWithPassword({ email, password })
   },
 
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
+    return await supabase.auth.signOut()
   },
 
   getCurrentUser: async () => {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    return { user, error }
+    return await supabase.auth.getUser()
   },
 
   getSession: async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    return { session, error }
-  }
+    return await supabase.auth.getSession()
+  },
 }
 
-// Database helper functions
+// --- Database helpers ---
 export const db = {
-  getUserProfile: async (userId) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-    return { data, error }
-  },
+  getUserProfile: async (userId) =>
+    await supabase.from("user_profiles").select("*").eq("user_id", userId).single(),
 
-  updateUserProfile: async (userId, updates) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .update(updates)
-      .eq('user_id', userId)
-      .select()
-      .single()
-    return { data, error }
-  },
+  updateUserProfile: async (userId, updates) =>
+    await supabase.from("user_profiles").update(updates).eq("user_id", userId).select().single(),
 
-  createSession: async (sessionData) => {
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert(sessionData)
-      .select()
-      .single()
-    return { data, error }
-  },
+  createSession: async (sessionData) =>
+    await supabase.from("sessions").insert(sessionData).select().single(),
 
-  getUserSessions: async (userId) => {
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-    return { data, error }
-  },
+  getUserSessions: async (userId) =>
+    await supabase.from("sessions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
 
-  saveGeneratedImage: async (imageData) => {
-    const { data, error } = await supabase
-      .from('generated_images')
-      .insert(imageData)
-      .select()
-      .single()
-    return { data, error }
-  },
+  saveGeneratedImage: async (imageData) =>
+    await supabase.from("generated_images").insert(imageData).select().single(),
 
-  getUserImages: async (userId) => {
-    const { data, error } = await supabase
-      .from('generated_images')
-      .select(`
-        *,
-        sessions (
-          layout,
-          filter_applied,
-          created_at
-        )
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-    return { data, error }
-  },
+  getUserImages: async (userId) =>
+    await supabase
+      .from("generated_images")
+      .select(
+        `*, sessions (layout, filter_applied, created_at)`
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
 
-  updateImageDownloadCount: async (imageId) => {
-    const { data, error } = await supabase
-      .rpc('increment_download_count', { image_id: imageId })
-    return { data, error }
-  },
+  updateImageDownloadCount: async (imageId) =>
+    await supabase.rpc("increment_download_count", { image_id: imageId }),
 
-  getAllUsers: async () => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    return { data, error }
-  },
+  getAllUsers: async () =>
+    await supabase.from("user_profiles").select("*").order("created_at", { ascending: false }),
 
-  getAllImages: async () => {
-    const { data, error } = await supabase
-      .from('generated_images')
-      .select(`
-        *,
-        user_profiles (
-          email,
-          full_name
-        ),
-        sessions (
-          layout,
-          filter_applied
-        )
-      `)
-      .order('created_at', { ascending: false })
-    return { data, error }
-  },
+  getAllImages: async () =>
+    await supabase
+      .from("generated_images")
+      .select(
+        `*, user_profiles (email, full_name), sessions (layout, filter_applied)`
+      )
+      .order("created_at", { ascending: false }),
 
-  getAllSessions: async () => {
-    const { data, error } = await supabase
-      .from('sessions')
-      .select(`
-        *,
-        user_profiles (
-          email,
-          full_name
-        )
-      `)
-      .order('created_at', { ascending: false })
-    return { data, error }
-  }
+  getAllSessions: async () =>
+    await supabase
+      .from("sessions")
+      .select(
+        `*, user_profiles (email, full_name)`
+      )
+      .order("created_at", { ascending: false }),
 }
 
+// --- RPC helper ---
 export const createIncrementFunction = async () => {
-  const { data, error } = await supabase.rpc('create_increment_function')
-  return { data, error }
+  return await supabase.rpc("create_increment_function")
 }
