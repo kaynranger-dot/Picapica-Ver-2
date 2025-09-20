@@ -58,7 +58,6 @@ const Register = () => {
       setError('')
       setLoading(true)
       
-      // ✅ FIXED: send metadata inside options.data
       const { data, error } = await signUp(
         formData.email, 
         formData.password,

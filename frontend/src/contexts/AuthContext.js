@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: userData },
+        options: userData.options || {}
       })
 
       if (error) throw error
