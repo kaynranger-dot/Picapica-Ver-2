@@ -1,9 +1,9 @@
 // src/lib/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-// Get env vars from Vite
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Get env vars from Create React App
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
 // Create client
 export const supabase = createClient(supabaseUrl, supabaseKey)
