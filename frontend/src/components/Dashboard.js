@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { db } from '../lib/supabase'
 
 const Dashboard = () => {
   const { user, userProfile, signOut } = useAuth()
