@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import fishSticker from "../assets/fish.png";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { db } from "../lib/supabase";
 
 const PhotoPreview = ({ capturedImages: propCapturedImages, stickerImage: propStickerImage }) => {
   const { user } = useAuth();
