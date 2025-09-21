@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { db } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext"
 
 const PhotoBooth = ({ setCapturedImages }) => {
   const { user } = useAuth();
