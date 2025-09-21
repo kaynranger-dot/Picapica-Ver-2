@@ -317,6 +317,7 @@ const PhotoBooth = ({ setCapturedImages }) => {
   return (
     <div className="photo-booth">
       {countdown !== null && <h2 className="countdown animate">{countdown}</h2>}
+      }
 
       {saving && (
         <div className="saving-indicator">
