@@ -1,6 +1,8 @@
+// src/App.js
 import "./App.css";
 import React, { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext"; // ✅ dummy context
 import Home from "./components/Home";
 import Welcome from "./components/Welcome";
 import PhotoBooth from "./components/PhotoBooth";
@@ -15,42 +17,47 @@ function App() {
   const [capturedImages, setCapturedImages] = useState([]);
 
   return (
-    <div className="App">
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/welcome" element={<Welcome />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route
-          path="/photobooth"
-          element={<PhotoBooth setCapturedImages={setCapturedImages} />}
-        />
-        <Route
-          path="/preview"
-          element={<PhotoPreview capturedImages={capturedImages} />}
-        />
+    <Router>
+      {/* ✅ Wrap everything with AuthProvider */}
+      <AuthProvider>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/photobooth"
+              element={<PhotoBooth setCapturedImages={setCapturedImages} />}
+            />
+            <Route
+              path="/preview"
+              element={<PhotoPreview capturedImages={capturedImages} />}
+            />
 
-        {/* Protected Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+            {/* Protected Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
 
-        {/* Admin Only Routes */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute adminOnly={true}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </div>
+            {/* Admin Only Routes */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
 
