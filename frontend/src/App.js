@@ -23,24 +23,10 @@ function App() {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/photobooth" element={<PhotoBooth setCapturedImages={setCapturedImages} />} />
+          <Route path="/preview" element={<PhotoPreview capturedImages={capturedImages} />} />
           
           {/* Protected Routes */}
-          <Route 
-            path="/photobooth" 
-            element={
-              <ProtectedRoute>
-                <PhotoBooth setCapturedImages={setCapturedImages} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/preview" 
-            element={
-              <ProtectedRoute>
-                <PhotoPreview capturedImages={capturedImages} />
-              </ProtectedRoute>
-            } 
-          />
           <Route 
             path="/dashboard" 
             element={

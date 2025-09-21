@@ -7,6 +7,7 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showTestCredentials, setShowTestCredentials] = useState(false)
   
   const { signIn } = useAuth()
   const navigate = useNavigate()
@@ -14,6 +15,15 @@ const Login = () => {
   
   const from = location.state?.from?.pathname || '/'
 
+  const useTestCredentials = (type) => {
+    if (type === 'admin') {
+      setEmail('admin@picapica.com')
+      setPassword('admin123')
+    } else {
+      setEmail('user@picapica.com')
+      setPassword('user123')
+    }
+  }
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -52,6 +62,41 @@ const Login = () => {
             {error}
           </div>
         )}
+        
+        <div className="test-credentials" style={{ marginBottom: '20px', padding: '15px', background: '#f0f8ff', borderRadius: '8px', border: '1px solid #b3d9ff' }}>
+          <button 
+            type="button"
+            onClick={() => setShowTestCredentials(!showTestCredentials)}
+            style={{ background: 'none', border: 'none', color: '#0066cc', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {showTestCredentials ? 'Hide' : 'Show'} Test Credentials
+          </button>
+          
+          {showTestCredentials && (
+            <div style={{ marginTop: '10px' }}>
+              <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#333' }}>
+                <strong>Admin Account:</strong>
+                <button 
+                  type="button"
+                  onClick={() => useTestCredentials('admin')}
+                  style={{ marginLeft: '10px', padding: '4px 8px', background: '#ff69b4', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Use Admin Login
+                </button>
+              </p>
+              <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#333' }}>
+                <strong>Regular User:</strong>
+                <button 
+                  type="button"
+                  onClick={() => useTestCredentials('user')}
+                  style={{ marginLeft: '10px', padding: '4px 8px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Use User Login
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
         
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

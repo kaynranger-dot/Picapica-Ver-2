@@ -30,16 +30,13 @@ const PhotoBooth = ({ setCapturedImages }) => {
 
   // Create a new session when component mounts
   useEffect(() => {
-    if (user) {
-      createNewSession();
-    }
+    createNewSession();
   }, [user, layout]);
 
   const createNewSession = async () => {
-    if (!user) return;
     try {
       const sessionData = {
-        user_id: user.id,
+        user_id: user?.id || null,
         layout: layout,
         filter_applied: filter,
         metadata: {

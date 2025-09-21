@@ -218,14 +218,14 @@ const PhotoPreview = ({ capturedImages: propCapturedImages, stickerImage: propSt
 
   // Save updated image when background or sticker changes
   const saveUpdatedImage = async () => {
-    if (!user || !sessionId || !canvasRef.current) return;
+    if (!sessionId || !canvasRef.current) return;
     
     try {
       setSaving(true);
       const imageDataUrl = canvasRef.current.toDataURL('image/png');
       
       const imageData = {
-        user_id: user.id,
+        user_id: user?.id || null,
         session_id: sessionId,
         image_url: imageDataUrl,
         image_data: imageDataUrl,
@@ -305,7 +305,15 @@ const PhotoPreview = ({ capturedImages: propCapturedImages, stickerImage: propSt
             <div className="strip-buttons" style={{ marginTop: 10 }}>
               <button onClick={downloadStrip}>📥 Download Photo Strip</button>
              <button onClick={() => navigate("/photobooth")}>🔄 Take New Photos</button>
-             {user && (
+             
+             {!user ? (
+               <button 
+                 onClick={() => navigate("/login", { state: { from: { pathname: "/dashboard" } } })}
+                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+               >
+                 🔐 Login to Save & Share
+               </button>
+             ) : (
                <button onClick={() => navigate("/dashboard")}>📊 Dashboard</button>
              )}
             </div>
