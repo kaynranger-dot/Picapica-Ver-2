@@ -1,13 +1,13 @@
+// src/contexts/AuthContext.js
 import React, { createContext, useContext, useState } from "react";
 
-// Create context
+// 1️⃣ Create context
 const AuthContext = createContext();
 
-// ✅ Dummy provider (no backend)
+// 2️⃣ Provider component
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
-  // Fake login/logout just for testing
   const login = (username) => setUser({ name: username });
   const logout = () => setUser(null);
 
@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
   );
 }
 
-// ✅ useAuth hook
+// 3️⃣ Hook to use auth anywhere
 export function useAuth() {
   return useContext(AuthContext);
 }
